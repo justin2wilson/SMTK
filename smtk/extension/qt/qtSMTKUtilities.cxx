@@ -13,6 +13,7 @@
 #include "smtk/extension/qt/qtResourceBrowser.h"
 #include "smtk/extension/qt/qtUIManager.h"
 #include "smtk/model/EntityRef.h"
+#include "smtk/task/Manager.h"
 
 using qtItemConstructor = smtk::extension::qtItemConstructor;
 using qtModelViewConstructor = smtk::extension::qtModelViewConstructor;
@@ -20,6 +21,7 @@ using qtResourceBrowser = smtk::extension::qtResourceBrowser;
 
 SMTKItemConstructorMap qtSMTKUtilities::s_itemConstructors;
 SMTKModelViewConstructorMap qtSMTKUtilities::s_modelViewConstructors;
+SMTKTaskWidgetConstructorMap qtSMTKUtilities::s_taskWidgetConstructors;
 
 const SMTKItemConstructorMap& qtSMTKUtilities::itemConstructors()
 {
@@ -37,6 +39,11 @@ const SMTKModelViewConstructorMap& qtSMTKUtilities::modelViewConstructors()
   return ctors;
 }
 
+const SMTKTaskWidgetConstructorMap& qtSMTKUtilities::taskWidgetConstructors()
+{
+  return qtSMTKUtilities::s_taskWidgetConstructors;
+}
+
 void qtSMTKUtilities::registerItemConstructor(const std::string& itemName, qtItemConstructor itemc)
 {
   // this will overwrite the existing constructor if the itemName exists in the map
@@ -48,6 +55,48 @@ void qtSMTKUtilities::registerModelViewConstructor(
   smtk::extension::qtModelViewConstructor viewc)
 {
   qtSMTKUtilities::s_modelViewConstructors[viewName] = viewc;
+}
+
+void qtSMTKUtilities::registerTaskWidgetConstructor(const std::string& widgetName, TaskWidgetConstructor widgetc)
+{
+  qtSMTKUtilities::s_taskWidgetConstructors[widgetName] = widgetc;
+}
+
+TaskWidgetConstructor qtSMTKUtilities::getTaskWidgetConstructor(const std::string& widgetName)
+{
+  auto it = qtSMTKUtilities::s_taskWidgetConstructors.find(widgetName);
+  if (it != qtSMTKUtilities::s_taskWidgetConstructors.end())
+  {
+    return it->second;
+  }
+  return nullptr;
+}
+
+std::vector<std::string> qtSMTKUtilities::findWidgetFactoryType(smtk::task::Task* task, const std::string& taskStyleType)
+{
+  std::vector<std::string> widgetFactoryTypes;
+  auto* taskManager = task->manager();
+  if (taskManager)
+  {
+    for (const auto& style : task->style())
+    {
+      const auto& styleConfig = taskManager->getStyle(style);
+      auto it = styleConfig.find(taskStyleType);
+      if (it == styleConfig.end())
+      {
+        continue;
+      }
+      auto it1 = it->find("children");
+      if (it1 != it->end() && it1->is_array())
+      {
+        for (const auto& child : *it1)
+        {
+          widgetFactoryTypes.push_back(child.get<std::string>());
+        }
+      }
+    }
+  }
+  return widgetFactoryTypes;
 }
 
 void qtSMTKUtilities::updateItemConstructors(smtk::extension::qtUIManager* uiMan)

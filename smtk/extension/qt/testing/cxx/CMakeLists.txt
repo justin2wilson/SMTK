@@ -14,6 +14,7 @@ find_package(Qt5 REQUIRED COMPONENTS Test)
 
 set(unit_tests_headers
   qtPrintLog.h
+  UnitTestCustomFactoryWidget.h
   UnitTestDoubleClickButton.h
   UnitTestEmittingStringBuffer.h
 )
@@ -22,6 +23,7 @@ set(unit_tests_headers_data
 )
 
 set(unit_tests
+  UnitTestCustomFactoryWidget.cxx
   UnitTestDoubleClickButton.cxx
   UnitTestEmittingStringBuffer.cxx
   UnitTestForceRequiredItem.cxx

@@ -15,6 +15,7 @@
 #include "smtk/extension/qt/diagram/qtDiagramViewConfiguration.h"
 #include "smtk/extension/qt/diagram/qtTaskEditor.h"
 #include "smtk/extension/qt/qtBaseView.h"
+#include "smtk/extension/qt/qtSMTKUtilities.h"
 
 #include "smtk/attribute/Attribute.h"
 #include "smtk/attribute/StringItem.h"
@@ -291,6 +292,23 @@ qtDefaultTaskNode::qtDefaultTaskNode(
   : Superclass(generator, task, parent)
   , m_container(new DefaultTaskNodeWidget(this))
 {
+  auto factoryTypes = qtSMTKUtilities::findWidgetFactoryType(task);
+  if (!factoryTypes.empty())
+  {
+    for (auto& factoryType : factoryTypes)
+    {
+      auto factoryMethod = qtSMTKUtilities::getTaskWidgetConstructor(factoryType);
+      if (factoryMethod)
+      {
+        QWidget* childWidget = factoryMethod(task, m_container);
+        if (childWidget)
+        {
+          this->m_container->layout()->addWidget(childWidget);
+        }
+      }
+    }
+  }
+
   qtDiagramViewConfiguration& cfg(*this->scene()->configuration());
   // Create a container to hold node contents
   {
