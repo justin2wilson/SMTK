@@ -149,12 +149,14 @@ Read::Result Read::operateInternal()
     // Indicate what worklets were read.
     auto createdComponents = result->findComponent("created");
     project->taskManager().taskInstances().visit(
-      [&createdComponents](const smtk::task::Task::Ptr& task) {
+      [&createdComponents](const smtk::task::Task::Ptr& task)
+      {
         createdComponents->appendValue(task);
         return smtk::common::Visit::Continue;
       });
     project->taskManager().adaptorInstances().visit(
-      [&createdComponents](const smtk::task::Adaptor::Ptr& adaptor) {
+      [&createdComponents](const smtk::task::Adaptor::Ptr& adaptor)
+      {
         createdComponents->appendValue(adaptor);
         return smtk::common::Visit::Continue;
       });

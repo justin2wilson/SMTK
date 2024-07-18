@@ -85,7 +85,7 @@ Transform::Result Transform::operateInternal()
   }
 
   // Execute the transform.
-  transform->operate(Key());
+  transform->operate(this->childKey());
 
   // Access the attribute associated with the modified meshes.
   Result result = this->createResult(smtk::operation::Operation::Outcome::SUCCEEDED);
@@ -104,7 +104,8 @@ Transform::Result Transform::operateInternal()
 
   std::function<void(const smtk::common::UUID&)> mark;
 
-  mark = [&](const smtk::common::UUID& id) {
+  mark = [&](const smtk::common::UUID& id)
+  {
     markGeometry.markModified(resource->find(id));
     auto elementIt = topology->m_elements.find(id);
     if (elementIt == topology->m_elements.end())

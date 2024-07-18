@@ -14,6 +14,7 @@
 
 #include "smtk/PublicPointerDefs.h"
 #include "smtk/SharedFromThis.h"
+#include "smtk/common/Deprecation.h"
 
 #include <functional>
 #include <map>
@@ -99,7 +100,10 @@ public:
   // cannot be set. It is virtual so that derived operations can assign their
   // own index (as is necessary for python operations that would otherwise all
   // resolve to the same index).
-  virtual Index index() const { return std::type_index(typeid(*this)).hash_code(); }
+  virtual Index index() const
+  {
+    return std::type_index(typeid(*this)).hash_code();
+  }
 
   /// Update the operation's specification and operations to be consistent.
   ///
@@ -161,7 +165,7 @@ public:
   /// resource; anyone holding the shared pointer to the result will keep the
   /// attribute in memory but will experience inconsistent behavior since its items
   /// are removed as part of releasing it from control by the attribute::Resource.
-  virtual bool releaseResult(Result& result);
+  virtual bool releaseResult(Result & result);
 
   /// Retrieve the operation's logger. By default, we use the singleton logger.
   /// Derived classes can reimplement this method if an alternative logging
@@ -185,17 +189,29 @@ public:
   Result createResult(Outcome);
 
   /// Operations that are managed have a non-null pointer to their manager.
-  ManagerPtr manager() const { return m_manager.lock(); }
+  ManagerPtr manager() const
+  {
+    return m_manager.lock();
+  }
 
   /// restore operation parameters from the trace of a previously run operation.
   bool restoreTrace(const std::string& trace);
 
   /// Operations may be passed application state in the form of a Managers type-container.
-  void setManagers(const std::shared_ptr<smtk::common::Managers>& m) { m_managers = m; }
-  std::shared_ptr<smtk::common::Managers> managers() const { return m_managers; }
+  void setManagers(const std::shared_ptr<smtk::common::Managers>& m)
+  {
+    m_managers = m;
+  }
+  std::shared_ptr<smtk::common::Managers> managers() const
+  {
+    return m_managers;
+  }
 
   /// Is this type of operation safe to launch in a thread?
-  virtual bool threadSafe() const { return true; }
+  virtual bool threadSafe() const
+  {
+    return true;
+  }
 
   /// retrieve the resource manager, if available.
   smtk::resource::ManagerPtr resourceManager();
@@ -208,6 +224,12 @@ protected:
   /// The default implementation simply calls extractResourceAndLockTypes()
   /// on the operation's parameters.
   virtual ResourceAccessMap identifyLocksRequired();
+
+  /// Returns the set of resources that are currently locked by this operation.
+  const ResourceAccessMap& lockedResources() const
+  {
+    return this->m_lockedResources;
+  }
 
   /// Perform the actual operation and construct the result.
   virtual Result operateInternal() = 0;
@@ -237,21 +259,61 @@ protected:
   std::weak_ptr<Manager> m_manager;
   std::shared_ptr<smtk::common::Managers> m_managers;
 
-  // Operations need the ability to execute Operations without going through
-  // all of the checks and locks associated with the public operate() method.
-  // We therefore use a variant of the PassKey pattern to grant Operation
-  // and all of its children access to another operator's operateInternal()
-  // method. It is up to the writer of the outer Operation to ensure that
-  // Resources are accessed with appropriate lock types and that Operations
-  // called in this manner have valid inputs.
-  struct Key
+  enum LockOption
   {
-    explicit Key() = default;
-    Key(std::initializer_list<int>) {}
+    LockAll,
+    ParentLocksOnly,
+    SkipLocks
   };
 
+  enum ObserverOption
+  {
+    InvokeObservers,
+    SkipObservers
+  };
+
+  enum ParametersOption
+  {
+    Validate,
+    SkipValidation
+  };
+
+private:
+  struct BaseKey
+  {
+    BaseKey() = default;
+    BaseKey(
+      const Operation* parent,
+      ObserverOption observerOption,
+      LockOption lockOption,
+      ParametersOption paramsOption)
+      : m_parent(parent)
+      , m_lockOption(lockOption)
+      , m_observerOption(observerOption)
+      , m_paramsOption(paramsOption)
+    {
+    }
+
+    const Operation* m_parent{ nullptr };
+    LockOption m_lockOption{ LockOption::SkipLocks };
+    ObserverOption m_observerOption{ ObserverOption::SkipObservers };
+    ParametersOption m_paramsOption{ ParametersOption::SkipValidation };
+  };
+
+protected:
+  SMTK_DEPRECATED_IN_24_08("Use this->childKey() instead.")
+  struct Key : BaseKey
+  {
+    Key() = default;
+  };
+
+  BaseKey childKey(
+    ObserverOption observerOption = ObserverOption::SkipObservers,
+    LockOption lockOption = LockOption::LockAll,
+    ParametersOption paramsOption = ParametersOption::Validate) const;
+
 public:
-  Result operate(Key) { return operateInternal(); }
+  Result operate(const BaseKey& key);
 
 private:
   // Construct the operation's specification. This is typically done by reading
@@ -260,10 +322,13 @@ private:
   // operation's input and output attributes.
   virtual Specification createSpecification() = 0;
 
+  void unlockResources(const ResourceAccessMap& resources);
+
   Specification m_specification;
   Parameters m_parameters;
   Definition m_resultDefinition;
   std::vector<std::weak_ptr<smtk::attribute::Attribute>> m_results;
+  ResourceAccessMap m_lockedResources;
 };
 
 /**\brief Return the outcome of an operation given its \a result object.
